@@ -2,26 +2,101 @@
 // SET API KEY  |
 //===============
 
-var APIKey = ''; 
+var APIKey = '9CA9267B737842ACE047EABC7BE0CA50';
+var steamdir = 'C:\\Program Files (x86)\\Steam\\steamapps\\';
 
 //Enter Steam API Key above.
 //Obtaining an API key: http://steamcommunity.com/dev/apikey
 
-
-
 //===============
 // GET LISTINGS |
 //===============
+var scrape = function() {
+    var ids = {};
+    var libs = [];
+    fs = require('fs');
+    fs.readdirSync(steamdir).forEach(function(file) {
+        parseLibs(steamdir + file, libs);
+        parseGameCache(steamdir + file, ids);
+    });
+    libs.forEach(function(lib) {
+        console.log(lib);
+        fs.readdirSync(lib).forEach(function (file) {
+            parseGameCache(lib + file, ids);
+        });
+    });
+    return ids;
+};
+
+var parseLibs = function(file, libs) {
+    if(file.match('.*libraryfolders.vdf')) {
+
+
+        var data = fs.readFileSync(file, 'utf8');
+        data.split("\n").forEach(function(line) {
+            var re = /\s*\"([^\"]+)\"\s*\"([^\"]+)\"\s*/;
+            var keyvalue = re.exec(line);
+            if(keyvalue != null) {
+               libs[libs.length] = keyvalue[2] + "\\steamapps\\";
+            }
+        });
+    }
+};
+
+var parseGameCache = function(file, ids) {
+    if(file.match('.*\\.acf'))
+    {
+        var data = fs.readFileSync(file, 'utf8');
+        data.split("\n").forEach(function(line) {
+            var re = /\s*\"([^\"]+)\"\s*\"([^\"]+)\"\s*/;
+            var keyValue = re.exec(line);
+            if(keyValue != null && keyValue[1] === 'appID') {
+                ids[keyValue[2]] = true;
+            }
+        });
+    }
+};
+
 var getListings = function() {
 
+    var ids = scrape();
+
+    var request1="http://api.steampowered.com/IPlayerService/GetRecentlyPlayedGames/v0001/" + "?key="+ APIKey + "&steamid=" + userID2 + "&format=json";
+    var request2="http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/" + "?key=" + APIKey + "&steamid=" + userID2 + "&include_appinfo=1" + "&format=json";
+
     $("#inner-content").html("");
-    $.getJSON("http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key="+APIKey+"&steamid=" + userID2 + "&include_appinfo=1&format=json", function(result) {
+    $.getJSON(request2, function(result) {
+        result.response.games.sort(function(a, b) {
+            if(a.playtime_2weeks > b.playtime_2weeks  ) {
+                return -1;
+            }
+            if(a.playtime_2weeks   < b.playtime_2weeks  ) {
+                return 1;
+            }if(a.playtime_forever > b.playtime_forever ) {
+                return -1;
+            }
+            if(a.playtime_forever  < b.playtime_forever ) {
+                return 1;
+            }
+            if(a.name < b.name)
+            {
+                return -1;
+            }
+            if(a.name > b.name)
+            {
+                return 1;
+            }
+            return 0;
+        });
 
         result.response.games.forEach(function(key) {
             var AppID = key.appid;
             var gameName = key.name;
             var imageUrl = 'http://cdn.akamai.steamstatic.com/steam/apps/' + AppID + '/header.jpg';
 
+            if(!(AppID in ids)) {
+                return;
+            }
 
             // The "callback" argument is called with either true or false
             // depending on whether the image at "url" exists or not.
