@@ -45,6 +45,12 @@ Temporary Items
 # RubyMine Project
 .idea
 
+# Intellij Project
+*.iml
+
 #API
 api.txt
 apikey.js
+
+#Output directories
+out
