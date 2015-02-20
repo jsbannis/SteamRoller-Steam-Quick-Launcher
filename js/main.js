@@ -1,8 +1,7 @@
 //===============
 // SET API KEY  |
 //===============
-
-var APIKey = '9CA9267B737842ACE047EABC7BE0CA50';
+fs = require('fs');
 var steamdir = 'C:\\Program Files (x86)\\Steam\\steamapps\\';
 var installedOnly = false;
 
@@ -15,7 +14,6 @@ var installedOnly = false;
 var scrape = function() {
     var ids = {};
     var libs = [];
-    fs = require('fs');
     fs.readdirSync(steamdir).forEach(function(file) {
         parseLibs(steamdir + file, libs);
         parseGameCache(steamdir + file, ids);
