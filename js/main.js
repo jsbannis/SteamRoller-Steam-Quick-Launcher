@@ -4,6 +4,7 @@
 
 var APIKey = '9CA9267B737842ACE047EABC7BE0CA50';
 var steamdir = 'C:\\Program Files (x86)\\Steam\\steamapps\\';
+var installedOnly = false;
 
 //Enter Steam API Key above.
 //Obtaining an API key: http://steamcommunity.com/dev/apikey
@@ -20,7 +21,6 @@ var scrape = function() {
         parseGameCache(steamdir + file, ids);
     });
     libs.forEach(function(lib) {
-        console.log(lib);
         fs.readdirSync(lib).forEach(function (file) {
             parseGameCache(lib + file, ids);
         });
@@ -30,8 +30,6 @@ var scrape = function() {
 
 var parseLibs = function(file, libs) {
     if(file.match('.*libraryfolders.vdf')) {
-
-
         var data = fs.readFileSync(file, 'utf8');
         data.split("\n").forEach(function(line) {
             var re = /\s*\"([^\"]+)\"\s*\"([^\"]+)\"\s*/;
@@ -115,38 +113,26 @@ var sortGames = function(games) {
     });
 };
 
+// TODO this method should be async; need to show loading bar until we're done
 var getListings = function() {
     $("#inner-content").html("");
     var games = buildGameList();
     sortGames(games);
+
     games.forEach(function (game) {
-        if(!game.installed)
+        if(!game.installed && installedOnly)
         {
             return;
         }
-        console.log(game);
-
-        // The "callback" argument is called with either true or false
-        // depending on whether the image at "url" exists or not.
-        function imageExists(url, callback) {
-            var img = new Image();
-            img.onload = function() {
-                callback(true);
-            };
-            img.onerror = function() {
-                callback(false);
-            };
-            img.src = url;
-        }
 
         // Check if image exists and use thumbnail, otherwise use missing.jpg
-        imageExists(game.imageUrl, function(exists) {
-            if (exists === true) {
+        $.get(game.imageUrl)
+            .done(function() {
                 $("#inner-content").append('<a href="steam://run/' + game.appID + '" class="clicky" id="' + game.name + '"><img class="img-zoom" src="' + game.imageUrl + '"></a>');
-            } else {
+            })
+            .fail(function() {
                 $("#inner-content").append('<a href="steam://run/' + game.appID + '" class="clicky" id="' + game.name + '"><div class="missingTile img-zoom" style="width:250px; height:117px; background-image:url(images/missing.jpg); background-size: 250px 117px; background-repeat: no-repeat;"><p class="missingName">' + game.name + '</p></div></a>');
-            }
-        });
+            });
     });
     $(".loader").hide();
 };
