@@ -57,75 +57,98 @@ var parseGameCache = function(file, ids) {
     }
 };
 
-var getListings = function() {
-
+var buildGameList = function() {
     var ids = scrape();
+    var request1 = "http://api.steampowered.com/IPlayerService/GetRecentlyPlayedGames/v0001/" + "?key=" + APIKey + "&steamid=" + userID2 + "&format=json";
+    var request2 = "http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/" + "?key=" + APIKey + "&steamid=" + userID2 + "&include_appinfo=1" + "&format=json";
+    var games = {};
 
-    var request1="http://api.steampowered.com/IPlayerService/GetRecentlyPlayedGames/v0001/" + "?key="+ APIKey + "&steamid=" + userID2 + "&format=json";
-    var request2="http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/" + "?key=" + APIKey + "&steamid=" + userID2 + "&include_appinfo=1" + "&format=json";
-
-    $("#inner-content").html("");
-    $.getJSON(request2, function(result) {
-        result.response.games.sort(function(a, b) {
-            if(a.playtime_2weeks > b.playtime_2weeks  ) {
-                return -1;
-            }
-            if(a.playtime_2weeks   < b.playtime_2weeks  ) {
-                return 1;
-            }if(a.playtime_forever > b.playtime_forever ) {
-                return -1;
-            }
-            if(a.playtime_forever  < b.playtime_forever ) {
-                return 1;
-            }
-            if(a.name < b.name)
-            {
-                return -1;
-            }
-            if(a.name > b.name)
-            {
-                return 1;
-            }
-            return 0;
+    $.ajaxSetup( { "async": false } );
+    $.getJSON(request2, function (result) {
+        result.response.games.forEach(function (key) {
+            var game = {
+                appID: key.appid,
+                name: key.name,
+                imageUrl: 'http://cdn.akamai.steamstatic.com/steam/apps/' + key.appid + '/header.jpg',
+                playtime_forever: key.playtime_forever,
+                playtime_2weeks: '',
+                installed: key.appid in ids
+            };
+            games[game.appID] = game;
         });
-
-        result.response.games.forEach(function(key) {
-            var AppID = key.appid;
-            var gameName = key.name;
-            var imageUrl = 'http://cdn.akamai.steamstatic.com/steam/apps/' + AppID + '/header.jpg';
-
-            if(!(AppID in ids)) {
-                return;
-            }
-
-            // The "callback" argument is called with either true or false
-            // depending on whether the image at "url" exists or not.
-            function imageExists(url, callback) {
-                var img = new Image();
-                img.onload = function() {
-                    callback(true);
-                };
-                img.onerror = function() {
-                    callback(false);
-                };
-                img.src = url;
-            }
-
-            // Check if image exists and use thumbnail, otherwise use missing.jpg
-            imageExists(imageUrl, function(exists) {
-                if (exists === true) {
-                    $("#inner-content").append('<a href="steam://run/' + AppID + '" class="clicky" id="' + gameName + '"><img class="img-zoom" src="http://cdn.akamai.steamstatic.com/steam/apps/' + AppID + '/header.jpg"></a>');
-                } else {
-                    $("#inner-content").append('<a href="steam://run/' + AppID + '" class="clicky" id="' + gameName + '"><div class="missingTile img-zoom" style="width:250px; height:117px; background-image:url(images/missing.jpg); background-size: 250px 117px; background-repeat: no-repeat;"><p class="missingName">' + gameName + '</p></div></a>');
-                }
-            });
-
-        });
-
-        $(".loader").hide();
-
     });
+    $.getJSON(request1, function(result) {
+        result.response.games.forEach(function(key) {
+            if(key.appid in games)
+            {
+                games[key.appid].playtime_2weeks = key.playtime_2weeks;
+            }
+        });
+    });
+    return Object.keys(games).map(function (appID) {
+        return games[appID];
+    });
+};
 
+var sortGames = function(games) {
+    games.sort(function(a, b) {
+        if(a.playtime_2weeks > b.playtime_2weeks  ) {
+            return -1;
+        }
+        if(a.playtime_2weeks   < b.playtime_2weeks  ) {
+            return 1;
+        }if(a.playtime_forever > b.playtime_forever ) {
+            return -1;
+        }
+        if(a.playtime_forever  < b.playtime_forever ) {
+            return 1;
+        }
+        if(a.name < b.name)
+        {
+            return -1;
+        }
+        if(a.name > b.name)
+        {
+            return 1;
+        }
+        return 0;
+    });
+};
+
+var getListings = function() {
+    $("#inner-content").html("");
+    var games = buildGameList();
+    sortGames(games);
+    games.forEach(function (game) {
+        if(!game.installed)
+        {
+            return;
+        }
+        console.log(game);
+
+        // The "callback" argument is called with either true or false
+        // depending on whether the image at "url" exists or not.
+        function imageExists(url, callback) {
+            var img = new Image();
+            img.onload = function() {
+                callback(true);
+            };
+            img.onerror = function() {
+                callback(false);
+            };
+            img.src = url;
+        }
+
+        // Check if image exists and use thumbnail, otherwise use missing.jpg
+        imageExists(game.imageUrl, function(exists) {
+            if (exists === true) {
+                $("#inner-content").append('<a href="steam://run/' + game.appID + '" class="clicky" id="' + game.name + '"><img class="img-zoom" src="' + game.imageUrl + '"></a>');
+            } else {
+                $("#inner-content").append('<a href="steam://run/' + game.appID + '" class="clicky" id="' + game.name + '"><div class="missingTile img-zoom" style="width:250px; height:117px; background-image:url(images/missing.jpg); background-size: 250px 117px; background-repeat: no-repeat;"><p class="missingName">' + game.name + '</p></div></a>');
+            }
+        });
+    });
+    $(".loader").hide();
 };
 
 
